@@ -1207,15 +1207,27 @@ func TestMemberList_setAckHandler(t *testing.T) {
 }
 
 func TestMemberList_setProbeChannels_ImmediateTimeout(t *testing.T) {
-	m := &Memberlist{ackHandlers: make(map[uint32]*ackHandler)}
-	for seqNo := uint32(0); seqNo < 10000; seqNo++ {
-		ch := make(chan ackMessage, 1)
-		m.setProbeChannels(seqNo, ch, nil, 0)
-		require.False(t, (<-ch).Complete)
-		m.ackLock.Lock()
-		_, ok := m.ackHandlers[seqNo]
-		m.ackLock.Unlock()
-		require.False(t, ok, "handler survived its timeout")
+	for _, timeout := range []time.Duration{0, time.Nanosecond} {
+		t.Run(timeout.String(), func(t *testing.T) {
+			m := &Memberlist{ackHandlers: make(map[uint32]*ackHandler)}
+			deadline := time.NewTimer(5 * time.Second)
+			defer deadline.Stop()
+			// Give the timer repeated opportunities to race with registration.
+			for seqNo := uint32(0); seqNo < 10000; seqNo++ {
+				ch := make(chan ackMessage, 1)
+				m.setProbeChannels(seqNo, ch, nil, timeout)
+				select {
+				case ack := <-ch:
+					require.False(t, ack.Complete)
+				case <-deadline.C:
+					t.Fatalf("timed out waiting for probe %d to expire", seqNo)
+				}
+				m.ackLock.Lock()
+				_, ok := m.ackHandlers[seqNo]
+				m.ackLock.Unlock()
+				require.False(t, ok, "handler %d survived its timeout", seqNo)
+			}
+		})
 	}
 }
 

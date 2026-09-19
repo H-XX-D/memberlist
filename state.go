@@ -845,7 +845,7 @@ func (m *Memberlist) setProbeChannels(seqNo uint32, ackCh chan ackMessage, nackC
 		}
 	}
 
-	// Add the handler, with a reaping routine
+	// Prevent timeout cleanup from running before the handler is registered.
 	m.ackLock.Lock()
 	ah := &ackHandler{ackFn, nackFn, time.AfterFunc(timeout, func() {
 		m.ackLock.Lock()
