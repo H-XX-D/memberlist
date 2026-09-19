@@ -846,6 +846,7 @@ func (m *Memberlist) setProbeChannels(seqNo uint32, ackCh chan ackMessage, nackC
 	}
 
 	// Add the handler, with a reaping routine
+	m.ackLock.Lock()
 	ah := &ackHandler{ackFn, nackFn, time.AfterFunc(timeout, func() {
 		m.ackLock.Lock()
 		delete(m.ackHandlers, seqNo)
@@ -856,7 +857,6 @@ func (m *Memberlist) setProbeChannels(seqNo uint32, ackCh chan ackMessage, nackC
 		}
 	})}
 
-	m.ackLock.Lock()
 	m.ackHandlers[seqNo] = ah
 	m.ackLock.Unlock()
 }

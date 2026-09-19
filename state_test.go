@@ -1206,6 +1206,19 @@ func TestMemberList_setAckHandler(t *testing.T) {
 	require.False(t, ackHandlerExists(t, m), "non-reaped handler")
 }
 
+func TestMemberList_setProbeChannels_ImmediateTimeout(t *testing.T) {
+	m := &Memberlist{ackHandlers: make(map[uint32]*ackHandler)}
+	for seqNo := uint32(0); seqNo < 10000; seqNo++ {
+		ch := make(chan ackMessage, 1)
+		m.setProbeChannels(seqNo, ch, nil, 0)
+		require.False(t, (<-ch).Complete)
+		m.ackLock.Lock()
+		_, ok := m.ackHandlers[seqNo]
+		m.ackLock.Unlock()
+		require.False(t, ok, "handler survived its timeout")
+	}
+}
+
 func TestMemberList_invokeAckHandler(t *testing.T) {
 	m := &Memberlist{ackHandlers: make(map[uint32]*ackHandler)}
 
